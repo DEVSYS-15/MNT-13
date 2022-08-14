@@ -1,20 +1,29 @@
 ---
 - name: Install Clickhouse
-  hosts: clickhouse
+  hosts: 
+    - clickhouse
   handlers:
     - name: Start clickhouse service
       become: true
       ansible.builtin.systemd:
         name: clickhouse-server
         state: restarted
+        enabled: yes
     - name: reload firewalld
       become: true
       ansible.builtin.systemd:
         name: firewalld
         state: restarted
+    - name:  Start httpd service
+      become: true
+      ansible.builtin.systemd:
+        name: httpd
+        state: restarted
+        enabled: yes
+
+
   tasks:
-    - block:
-          
+    - block:          
         - name: Get clickhouse distrib
           become: true
           ansible.builtin.get_url:
@@ -31,6 +40,7 @@
       run_once: true      
       tags: 
         - "install clickhouse"
+   
     - name: Create a directory clickhouse if it does not exist
       ansible.builtin.file:
         path: ./clickhouse
@@ -38,6 +48,7 @@
         mode: '0755'
       tags: 
         - "install clickhouse" 
+   
     - name: Copy clickhouse packages
       copy:
         src: "{{ item }}"
@@ -46,9 +57,9 @@
           - clickhouse-common-static-{{ clickhouse_version }}.rpm
           - clickhouse-client-{{ clickhouse_version }}.rpm
           - clickhouse-server-{{ clickhouse_version }}.rpm
-
       tags: 
         - "install clickhouse"
+    
     - name: Install clickhouse packages
       become: true
       ansible.builtin.yum: 
@@ -71,6 +82,7 @@
       tags: 
         - "config clickhouse"
         - "install clickhouse"
+    
     - name: Open port "{{ clickhouse_http_port }}"
       become: true
       vars:
@@ -85,6 +97,7 @@
         
     - name :  Start clickhouse service if need 
       ansible.builtin.meta: flush_handlers
+    
     - name: Create database
       become: true
       ansible.builtin.command: "clickhouse-client   -q 'CREATE DATABASE IF NOT EXISTS logs'"
@@ -94,6 +107,7 @@
       tags: 
         - "db clickhouse"
         - "install clickhouse"
+    
     - name: Create database
       ansible.builtin.command: "clickhouse-client -q  'CREATE TABLE IF NOT EXISTS  logs.lastlog ( message String ) ENGINE = MergeTree() ORDER BY tuple();'"
       register: create_table
@@ -104,6 +118,76 @@
         - "install clickhouse"
 
 
+- name: Install Lighthouse
+  hosts: 
+    - Lighthouse
+  handlers:
+    - name: reload firewalld
+      become: true
+      ansible.builtin.systemd:
+        name: firewalld
+        state: restarted
+    - name:  Start httpd service
+      become: true
+      ansible.builtin.systemd:
+        name: httpd
+        state: restarted
+        enabled: yes
+  tasks:
+    - name: Download Lighthouse
+      become: true
+      ansible.builtin.get_url:
+        url: https://github.com/VKCOM/lighthouse/archive/refs/heads/master.zip
+        dest: "files/Lighthouse.zip"
+      delegate_to: localhost
+      run_once: true
+      tags: 
+        - "install Lighthouse"
+    
+    - name: install packages
+      become: true
+      ansible.builtin.yum: 
+        name: "{{ item }}"
+      with_items:
+          - "httpd"
+          - "unzip"
+      notify: Start httpd service
+      tags: 
+        - "install Lighthouse"
+    
+    - name: Create a directory Lighthouse if it does not exist
+      ansible.builtin.file:
+        path: ./Lighthouse
+        state: directory
+        mode: '0755'
+      tags: 
+        - "install Lighthouse" 
+   
+    - name: Unarchive Lighthouse packages
+      unarchive:
+        src: "files/Lighthouse.zip"
+        dest: ./Lighthouse/
+      tags: 
+        - "install Lighthouse"
+   
+    - name: Copy Lighthouse to /var/www/html/
+      ansible.builtin.copy:
+        src:  ./Lighthouse/lighthouse-master/
+        dest: /var/www/html/     
+        remote_src: yes
+      tags: 
+        - "install Lighthouse"
+    
+    - name: Open port for Lighthouse
+      become: true
+      vars:
+        ansible_python_interpreter: /usr/bin/python
+      ansible.posix.firewalld:
+        port: "80/tcp"
+        permanent: yes
+        state: enabled
+      notify: reload firewalld
+             
 - name: Install Vector
   hosts: vector
   handlers:
@@ -112,6 +196,7 @@
     ansible.builtin.systemd:
       name: vector
       state: restarted
+
   tasks:
   - name: Download Vector
     become: true
@@ -122,19 +207,22 @@
     run_once: true
     tags: 
       - "install vector"
-  - name: Create a directory clickhouse if it does not exist
+
+  - name: Create a directory Vector if it does not exist
     ansible.builtin.file:
         path: ./vector
         state: directory
         mode: '0755'
     tags: 
         - "install vector"
-  - name: 
+
+  - name: Copy Vector packages
     copy:
       src:  vector-{{ vector_release }}-{{ vector_version }}.x86_64.rpm
       dest: ./vector/
     tags: 
       - "install vector"      
+
   - name: Install vector packages
     become: true
     ansible.builtin.yum:
@@ -143,7 +231,8 @@
     notify: Start vector service
     tags: 
       - "install vector"
-  - name: Copy config
+  
+  - name: Copy config vector
     template:
         src: vector.j2
         dest:  /etc/vector/vector.toml

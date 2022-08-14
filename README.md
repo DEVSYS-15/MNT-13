@@ -1,4 +1,4 @@
-# Playbook для установки vector и clickhouse "
+# Playbook для установки vector и clickhouse Lighthouse"
 
 ## Параметры
 ### all/vars.yml
