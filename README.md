@@ -3,8 +3,9 @@
 ## Параметры
 ### all/vars.yml
 1. clickhouse_http_port: "8123" 
-    - позволяет выбрать порт для собедления в 
-    /etc/clickhouse-server/config.xml, /etc/vector.toml и открыть его 
+1. clickhouse_listen_host_default:
+     - "::1"
+     - "0.0.0.0"
 ### Сlickhouse/vars.yml
 1. ### clickhouse_packages
    ---
@@ -22,7 +23,8 @@
 - релиз vector
 3. ### vector_url: "https://packages.timber.io/vector/{{ vector_release }}/vector-{{ vector_release }}-{{ vector_version }}.x86_64.rpm"
 - ссыдка для скачивания vector
-
+### Зависимости 
+ - requirements.yml
 ### совметивмовсть 
 - centos7
 
